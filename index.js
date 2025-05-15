@@ -18,7 +18,7 @@ const openai = new OpenAI({
 });
 
 // LINE認証ミドルウェア
-//app.use(line.middleware(config));
+app.use(line.middleware(config));
 console.log("CHANNEL_SECRET:", process.env.CHANNEL_SECRET);
 app.use(express.json());
 
