@@ -18,8 +18,8 @@ const openai = new OpenAI({
 });
 
 // LINE認証ミドルウェア
-app.use(express.json());
 app.use(line.middleware(config));
+app.use(express.json());
 
 // Webhookエンドポイント
 app.post("/webhook", async (req, res) => {
