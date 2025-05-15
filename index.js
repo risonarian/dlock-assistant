@@ -1,9 +1,10 @@
 const express = require('express');
 const line = require('@line/bot-sdk');
+const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// LINE Bot 設定（環境変数から取得）
+// LINE Bot設定（環境変数から取得）
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.CHANNEL_SECRET
@@ -11,11 +12,11 @@ const config = {
 
 const client = new line.Client(config);
 
-// LINE ミドルウェアは express.json より先に！
+// ミドルウェアの順番注意！
 app.use(line.middleware(config));
 app.use(express.json());
 
-// Webhook エンドポイント
+// Webhookエンドポイント
 app.post('/webhook', (req, res) => {
   const events = req.body.events;
 
@@ -39,19 +40,19 @@ app.post('/webhook', (req, res) => {
   }))
     .then(() => res.status(200).send("OK"))
     .catch(err => {
-      console.error("Webhook処理中のエラー:", err.originalError || err);
+      console.error("Webhook処理中のエラー:", err);
       res.status(500).end();
     });
 });
 
-// 静的ファイル提供
+// 静的ファイル対応（publicフォルダ）
 app.use(express.static('public'));
 
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// おすすめ API（昼食提案機能）
+// おすすめAPI（昼ごはん提案）
 app.get('/api/suggest', (req, res) => {
   const genre = req.query.genre || 'omelet';
   const budget = parseInt(req.query.budget || '1000', 10);
@@ -85,8 +86,8 @@ app.get('/api/suggest', (req, res) => {
   });
 
   res.json({
-    genre: genre,
-    budget: budget,
+    genre,
+    budget,
     suggestions: results
   });
 });
