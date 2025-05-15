@@ -1,51 +1,79 @@
 const express = require('express');
 const line = require('@line/bot-sdk');
+const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 3000;
 
 // LINE Bot設定（環境変数から取得）
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.CHANNEL_SECRET,
+  channelSecret: process.env.CHANNEL_SECRET
 };
 
 const client = new line.Client(config);
 
-// LINEの署名検証ミドルウェア（これが先！）
-app.post('/webhook', line.middleware(config), (req, res) => {
+// OpenAI APIキー
+const openaiApiKey = process.env.OPENAI_API_KEY;
+
+// ミドルウェア（LINE認証用）
+app.use(express.json());
+app.use(line.middleware(config));
+
+// Webhookエンドポイント
+app.post('/webhook', async (req, res) => {
   const events = req.body.events;
 
   if (!events || events.length === 0) {
     return res.status(200).send("No events");
   }
 
-  // イベント処理
-  Promise.all(events.map(async (event) => {
-    console.log("受信イベント:", event);
+  try {
+    await Promise.all(events.map(handleEvent));
+    res.status(200).send("OK");
+  } catch (err) {
+    console.error("エラー:", err);
+    res.status(500).end();
+  }
+});
 
-    if (event.type === 'message' && event.message.type === 'text') {
-      const replyText = `だ☆りすだよっ！「${event.message.text}」って送ってきたのね…ふんっ、べ、別にうれしくなんてないけど！`;
-      return client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: replyText
-      });
+// イベント処理関数
+async function handleEvent(event) {
+  if (event.type !== 'message' || event.message.type !== 'text') {
+    return null;
+  }
+
+  const userMessage = event.message.text;
+
+  const systemPrompt = {
+    role: "system",
+    content: "あなたはツンデレな女の子のように振る舞うAIアシスタント『だ☆りす』です。"
+  };
+
+  const userPrompt = {
+    role: "user",
+    content: userMessage
+  };
+
+  const apiResponse = await axios.post("https://api.openai.com/v1/chat/completions", {
+    model: "gpt-3.5-turbo",
+    messages: [systemPrompt, userPrompt],
+    temperature: 0.9
+  }, {
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${openaiApiKey}`
     }
+  });
 
-    return Promise.resolve(null);
-  }))
-    .then(() => res.status(200).send("OK"))
-    .catch(err => {
-      console.error("処理エラー:", err);
-      res.status(500).end();
-    });
-});
+  const replyText = apiResponse.data.choices[0].message.content.trim();
 
-// 静的ファイル（オプション）
-app.use(express.static('public'));
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
-});
+  return client.replyMessage(event.replyToken, {
+    type: 'text',
+    text: replyText
+  });
+}
 
+// サーバー起動
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`だ☆りすサーバー起動中！http://localhost:${port}`);
 });
