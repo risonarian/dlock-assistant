@@ -1,35 +1,58 @@
 const express = require('express');
+const line = require('@line/bot-sdk');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// publicフォルダ内のファイルを静的に提供
-app.use(express.static('public'));
+// LINE Bot設定（環境変数から取得）
+const config = {
+  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.CHANNEL_SECRET
+};
 
-// 明示的に `/` へアクセスした時の処理
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
-});
+const client = new line.Client(config);
 
-app.post('/webhook', express.json(), (req, res) => {
+// ミドルウェア（LINE認証用）
+app.use(express.json());
+app.use(line.middleware(config));
+
+// Webhookエンドポイント
+app.post('/webhook', (req, res) => {
   const events = req.body.events;
 
   if (!events || events.length === 0) {
     return res.status(200).send("No events");
   }
 
-  events.forEach(event => {
+  // 各イベントに対して返信処理
+  Promise.all(events.map(event => {
     console.log("受信したイベント:", event);
-    // ここに応答処理を入れる予定よ！
-  });
 
-  res.status(200).send("OK");
+    if (event.type === 'message' && event.message.type === 'text') {
+      const replyText = `だ☆りすだよっ！「${event.message.text}」って送ってきたのね…ふんっ、べ、別にうれしくなんてないけど！`;
+
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: replyText
+      });
+    }
+
+    return Promise.resolve(null);
+  }))
+    .then(() => res.status(200).send("OK"))
+    .catch(err => {
+      console.error("Webhook処理中のエラー:", err);
+      res.status(500).end();
+    });
 });
 
-// サーバーを起動するよ！
-app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+// Webページ表示（静的ファイル対応）
+app.use(express.static('public'));
+
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
 });
 
+// おすすめAPI（例：昼ごはん提案機能）
 app.get('/api/suggest', (req, res) => {
   const genre = req.query.genre || 'omelet';
   const budget = parseInt(req.query.budget || '1000', 10);
@@ -56,7 +79,6 @@ app.get('/api/suggest', (req, res) => {
     { name: "ジャンル未登録のお店", price: 999, transport: "不明", time: "？分" }
   ];
 
-  // 予算を超えてたらメッセージを追加
   results.forEach(shop => {
     shop.message = (shop.price > budget)
       ? "ちょっと予算オーバーかも…どうする？"
@@ -68,4 +90,9 @@ app.get('/api/suggest', (req, res) => {
     budget: budget,
     suggestions: results
   });
+});
+
+// サーバー起動
+app.listen(port, () => {
+  console.log(`Server is running at http://localhost:${port}`);
 });
