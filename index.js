@@ -66,6 +66,11 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+// 動作確認用ルート
+app.get("/", (req, res) => {
+  res.send("D☆Lock Assistantは起動してるわよっ…べ、別にあなたのためじゃないけど！");
+});
+
 // サーバー起動
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
