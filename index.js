@@ -3,7 +3,7 @@ const line = require('@line/bot-sdk');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// LINE Bot設定（環境変数から取得）
+// LINE Bot 設定（環境変数から取得）
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.CHANNEL_SECRET
@@ -11,11 +11,11 @@ const config = {
 
 const client = new line.Client(config);
 
-// ミドルウェア（LINE認証用）
-app.use(express.json());
+// LINE ミドルウェアは express.json より先に！
 app.use(line.middleware(config));
+app.use(express.json());
 
-// Webhookエンドポイント
+// Webhook エンドポイント
 app.post('/webhook', (req, res) => {
   const events = req.body.events;
 
@@ -23,7 +23,6 @@ app.post('/webhook', (req, res) => {
     return res.status(200).send("No events");
   }
 
-  // 各イベントに対して返信処理
   Promise.all(events.map(event => {
     console.log("受信したイベント:", event);
 
@@ -40,19 +39,19 @@ app.post('/webhook', (req, res) => {
   }))
     .then(() => res.status(200).send("OK"))
     .catch(err => {
-      console.error("Webhook処理中のエラー:", err);
+      console.error("Webhook処理中のエラー:", err.originalError || err);
       res.status(500).end();
     });
 });
 
-// Webページ表示（静的ファイル対応）
+// 静的ファイル提供
 app.use(express.static('public'));
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
-// おすすめAPI（例：昼ごはん提案機能）
+// おすすめ API（昼食提案機能）
 app.get('/api/suggest', (req, res) => {
   const genre = req.query.genre || 'omelet';
   const budget = parseInt(req.query.budget || '1000', 10);
