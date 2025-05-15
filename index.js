@@ -1,64 +1,71 @@
-const express = require('express');
-const line = require('@line/bot-sdk');
-const { Configuration, OpenAIApi } = require('openai');
+const express = require("express");
+const line = require("@line/bot-sdk");
+const { OpenAI } = require("openai");
+
 const app = express();
 const port = process.env.PORT || 3000;
 
-// LINE Bot設定
+// LINE設定
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.CHANNEL_SECRET,
 };
-
 const client = new line.Client(config);
 
-// OpenAI設定
-const openai = new OpenAIApi(new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-}));
+// OpenAI GPT-4o設定
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-// ミドルウェア
+// LINE認証ミドルウェア
 app.use(express.json());
 app.use(line.middleware(config));
 
-// Webhook受信
-app.post('/webhook', async (req, res) => {
+// Webhookエンドポイント
+app.post("/webhook", async (req, res) => {
+  const events = req.body.events;
+  if (!events || events.length === 0) return res.status(200).send("No events");
+
   try {
-    const events = req.body.events;
-    if (!events || events.length === 0) {
-      return res.status(200).send("No events");
-    }
+    await Promise.all(
+      events.map(async (event) => {
+        if (event.type !== "message" || event.message.type !== "text") return;
 
-    await Promise.all(events.map(async (event) => {
-      if (event.type === 'message' && event.message.type === 'text') {
-        const userText = event.message.text;
+        const userMessage = event.message.text;
 
-        // OpenAIにメッセージ送信
-        const completion = await openai.createChatCompletion({
-          model: "gpt-3.5-turbo",
+        // GPT-4oとの会話生成
+        const gptResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
           messages: [
-            { role: "system", content: "あなたはツンデレな女の子「だ☆りす」です。語尾は少し刺々しいけど、根は優しくて一途です。" },
-            { role: "user", content: userText }
-          ]
+            {
+              role: "system",
+              content:
+                "あなたはツンデレなメイドの『だ☆りす』です。ユーザーの発言にはツンツンしながらも、最後にちょっとだけデレてください。",
+            },
+            {
+              role: "user",
+              content: userMessage,
+            },
+          ],
         });
 
-        const replyText = completion.data.choices[0].message.content;
+        const replyText = gptResponse.choices[0].message.content;
 
         await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: replyText
+          type: "text",
+          text: replyText,
         });
-      }
-    }));
+      })
+    );
 
     res.status(200).send("OK");
   } catch (err) {
-    console.error("エラー:", err);
-    res.status(500).send("Internal Error");
+    console.error("Webhookエラー:", err);
+    res.status(500).end();
   }
 });
 
-// 起動
+// サーバー起動
 app.listen(port, () => {
-  console.log(`だ☆りす起動中 http://localhost:${port}`);
+  console.log(`Server is running at http://localhost:${port}`);
 });
