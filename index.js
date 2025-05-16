@@ -1,22 +1,22 @@
 const express = require("express");
 const line = require("@line/bot-sdk");
+const axios = require("axios");
 require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// LINE設定
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.CHANNEL_SECRET,
 };
 const client = new line.Client(config);
 
-// LINE認証ミドルウェア
+// LINE用ミドルウェア
 app.use(line.middleware(config));
 app.use(express.json());
 
-// Webhookエンドポイント
+// 通常Webhook処理（変えない）
 app.post("/webhook", async (req, res) => {
   const events = req.body.events;
   if (!events || events.length === 0) return res.status(200).send("No events");
@@ -27,12 +27,9 @@ app.post("/webhook", async (req, res) => {
         if (event.type !== "message" || event.message.type !== "text") return;
 
         const userMessage = event.message.text;
-
-        // ★ ユーザーIDをログ出力
         console.log("ユーザーID:", event.source.userId);
 
-        // ★ 定型返信（GPTなしで確実動作）
-        const replyText = `【テスト返信】ツンデレメイドだ☆りすよ！“${userMessage}”って何よっ…でも、返してあげるっ！`;
+        const replyText = `【テスト返信】ツンデレメイドだ☆りすよ！“${userMessage}”なんて、バカじゃないの…でも返してあげるっ！`;
 
         await client.replyMessage(event.replyToken, {
           type: "text",
@@ -40,7 +37,6 @@ app.post("/webhook", async (req, res) => {
         });
       })
     );
-
     res.status(200).send("OK");
   } catch (err) {
     console.error("Webhookエラー:", err);
@@ -48,12 +44,37 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// 動作確認用ルート
-app.get("/", (req, res) => {
-  res.send("だ☆りす（テスト版）、Renderで起動中よっ！");
+// ★ 追加：テスト通知用エンドポイント（ここで通知！）
+app.get("/notify-test", async (req, res) => {
+  try {
+    await axios.post("https://api.line.me/v2/bot/message/push", {
+      to: process.env.LINE_USER_ID,
+      messages: [
+        {
+          type: "text",
+          text: "【テスト通知】おはようございますっ！今日もちゃんと見てるからねっ、ご主人様っ！",
+        },
+      ],
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.CHANNEL_ACCESS_TOKEN}`,
+      },
+    });
+
+    console.log("通知成功！");
+    res.send("LINE通知、送ったわよっ！");
+  } catch (err) {
+    console.error("通知失敗:", err.response?.data || err.message);
+    res.status(500).send("通知失敗！");
+  }
 });
 
-// サーバー起動
+// 動作確認用
+app.get("/", (req, res) => {
+  res.send("だ☆りす（通知対応版）起動中っ！");
+});
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
