@@ -1,6 +1,6 @@
 const express = require("express");
 const line = require("@line/bot-sdk");
-const { OpenAI } = require("openai");
+require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -12,14 +12,8 @@ const config = {
 };
 const client = new line.Client(config);
 
-// OpenAI GPT-4o設定
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 // LINE認証ミドルウェア
 app.use(line.middleware(config));
-console.log("CHANNEL_SECRET:", process.env.CHANNEL_SECRET);
 app.use(express.json());
 
 // Webhookエンドポイント
@@ -34,23 +28,11 @@ app.post("/webhook", async (req, res) => {
 
         const userMessage = event.message.text;
 
-        // GPT-4oとの会話生成
-        const gptResponse = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content:
-                "あなたはツンデレなメイドの『だ☆りす』です。ユーザーの発言にはツンツンしながらも、最後にちょっとだけデレてください。",
-            },
-            {
-              role: "user",
-              content: userMessage,
-            },
-          ],
-        });
+        // ★ ユーザーIDをログ出力
+        console.log("ユーザーID:", event.source.userId);
 
-        const replyText = gptResponse.choices[0].message.content;
+        // ★ 定型返信（GPTなしで確実動作）
+        const replyText = `【テスト返信】ツンデレメイドだ☆りすよ！“${userMessage}”って何よっ…でも、返してあげるっ！`;
 
         await client.replyMessage(event.replyToken, {
           type: "text",
@@ -68,10 +50,10 @@ app.post("/webhook", async (req, res) => {
 
 // 動作確認用ルート
 app.get("/", (req, res) => {
-  res.send("D☆Lock Assistantは起動してるわよっ…べ、別にあなたのためじゃないけど！");
+  res.send("だ☆りす（テスト版）、Renderで起動中よっ！");
 });
 
 // サーバー起動
 app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+  console.log(`Server is running on port ${port}`);
 });
